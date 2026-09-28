@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>Cognitive-Aware Adaptive Reader</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.8; max-width: 750px; margin: 50px auto; padding: 0 20px; color: #333; }
+    .status-badge { position: fixed; top: 20px; right: 20px; padding: 8px 16px; border-radius: 20px; font-size: 14px; background: #e0f2fe; color: #0369a1; font-weight: bold; }
+    .impeded { background-color: #fef08a; transition: background-color 0.8s ease; }
+    .tooltip-box { display: none; margin-top: 10px; padding: 12px; background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 4px; font-size: 14px; color: #15803d; }
+  </style>
+</head>
+<body>
+
+  <div id="status" class="status-badge">認知狀態：流暢吸收中</div>
+
+  <h2>自適應認知協同閱讀原型</h2>
+  <p id="para-1" class="trackable">
+    大型語言模型（LLM）的推論與自回歸生成機制雖然強大，但一次性輸出過多高密度 Token 時，極易使人類工作記憶（Working Memory）過載，產生嚴重的認知摩擦。傳統介面無法感知閱讀停滯，往往導致決策失誤。
+  </p>
+
+  <div id="tooltip" class="tooltip-box"></div>
+
+  <script>
+    let hoverTimer = null;
+    let startTime = 0;
+    const target = document.getElementById('para-1');
+    const statusDiv = document.getElementById('status');
+    const tooltipDiv = document.getElementById('tooltip');
+
+    // 監聽微觀操作：游標懸停時間 (Dwell Time)
+    target.addEventListener('mouseenter', () => {
+      startTime = Date.now();
+      hoverTimer = setTimeout(async () => {
+        const dwellTime = Date.now() - startTime;
+        statusDiv.innerText = "認知狀態：局部理解受阻 (分析中...)";
+        statusDiv.style.background = "#fef08a";
+        statusDiv.style.color = "#854d0e";
+        target.classList.add('impeded');
+
+        // 發送遙測封包至後端
+        const res = await fetch('http://127.0.0.1:8000/api/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            element_id: 'para-1',
+            dwell_time_ms: dwellTime,
+            regression_count: 2,
+            selected_text: target.innerText
+          })
+        });
+        const data = await res.json();
+        if(data.action === "MICRO_TOOLTIP") {
+          tooltipDiv.style.display = "block";
+          tooltipDiv.innerHTML = `<strong>💡 認知輔助提示：</strong>${data.content}`;
+        }
+      }, 3000); // 停頓超過 3 秒視為受阻
+    });
+
+    target.addEventListener('mouseleave', () => {
+      clearTimeout(hoverTimer);
+    });
+  </script>
+</body>
+</html>
